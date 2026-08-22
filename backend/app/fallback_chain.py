@@ -2,6 +2,7 @@
 import json
 import re
 import time
+import threading
 import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional, Tuple
@@ -14,6 +15,35 @@ class FallbackChain:
     def __init__(self):
         self.cb_registry = CircuitBreakerRegistry.get_instance()
         self.kb = KnowledgeBaseRepository.get_instance()
+        # Populated after each execute_scoring_chain for cost tracking
+        self.last_prompt: str = ""
+        self.last_response: str = ""
+        self.last_usage_metadata: Optional[Dict[str, Any]] = None
+
+    @staticmethod
+    def _call_with_timeout(fn, timeout: float, *args, **kwargs):
+        """
+        Runs a blocking function in a daemon thread with a hard wall-clock timeout.
+        Raises TimeoutError if the function does not complete in time.
+        This prevents urllib blocking calls from hanging the pipeline indefinitely.
+        """
+        result_container: Dict[str, Any] = {}
+
+        def _target():
+            try:
+                result_container["value"] = fn(*args, **kwargs)
+            except Exception as exc:
+                result_container["error"] = exc
+
+        t = threading.Thread(target=_target, daemon=True)
+        t.start()
+        t.join(timeout)
+        if t.is_alive():
+            raise TimeoutError(f"Provider call timed out after {timeout}s")
+        if "error" in result_container:
+            raise result_container["error"]
+        return result_container["value"]
+
 
     def build_prompt(self, turn_text: str, speaker: str, conversation_history: List[Dict[str, Any]], turn_id: str) -> str:
         kb_context = self.kb.get_prompt_context()
@@ -494,27 +524,44 @@ Respond ONLY with a valid JSON object matching this schema:
             "handoff_reason": handoff_reason
         }
 
-    def execute_scoring_chain(self, turn_text: str, speaker: str, conversation_history: List[Dict[str, Any]], turn_id: str) -> Tuple[Dict[str, Any], str, float]:
+    def execute_scoring_chain(
+        self,
+        turn_text: str,
+        speaker: str,
+        conversation_history: List[Dict[str, Any]],
+        turn_id: str,
+    ) -> Tuple[Dict[str, Any], str, float]:
         """
         Executes multi-provider fallback with circuit breakers:
         Tier 1: Gemini -> Tier 2: Groq -> Tier 3: Ollama -> Tier 4: Heuristic Scorer
+
+        Each LLM call is wrapped in a thread-based timeout guard so a hanging
+        urllib call cannot block the async event loop indefinitely.
+
         Returns: (validated_output, provider_used, latency_ms)
         """
         prompt = self.build_prompt(turn_text, speaker, conversation_history, turn_id)
+        self.last_prompt = prompt
+        self.last_response = ""
+        self.last_usage_metadata = None
 
         providers = [
             ("gemini", self.call_gemini, settings.circuit_breakers["gemini"].timeout_seconds),
-            ("groq", self.call_groq, settings.circuit_breakers["groq"].timeout_seconds),
-            ("ollama", self.call_ollama, settings.circuit_breakers["ollama"].timeout_seconds),
+            ("groq",   self.call_groq,   settings.circuit_breakers["groq"].timeout_seconds),
+            ("ollama", self.call_ollama,  settings.circuit_breakers["ollama"].timeout_seconds),
         ]
 
         for prov_name, call_fn, timeout in providers:
-            # Check configuration credentials before routing to provider
+            # Skip providers that are unconfigured or simulating an outage
             if prov_name == "gemini" and (not settings.gemini_api_key or settings.simulate_gemini_outage):
                 continue
             if prov_name == "groq" and (not settings.groq_api_key or settings.simulate_groq_outage):
                 continue
-            if prov_name == "ollama" and (not settings.ollama_enabled or not settings.ollama_endpoint or settings.simulate_ollama_outage):
+            if prov_name == "ollama" and (
+                not settings.ollama_enabled
+                or not settings.ollama_endpoint
+                or settings.simulate_ollama_outage
+            ):
                 continue
 
             cb = self.cb_registry.get(prov_name)
@@ -523,19 +570,57 @@ Respond ONLY with a valid JSON object matching this schema:
 
             t_start = time.time()
             try:
-                raw_response = call_fn(prompt, timeout=timeout)
+                # Thread-guarded call — prevents blocking urllib from hanging the loop
+                raw_response = self._call_with_timeout(call_fn, timeout, prompt, timeout=timeout)
                 latency_ms = (time.time() - t_start) * 1000.0
                 validated = LLMOutputValidator.parse_and_validate(raw_response, turn_id)
                 cb.record_success(latency_ms)
+                self.last_response = raw_response
                 return validated, prov_name, latency_ms
             except Exception as e:
                 latency_ms = (time.time() - t_start) * 1000.0
                 cb.record_failure(str(e))
-                # Continue fallback chain to next provider
+                # Continue to next provider in chain
 
-        # Fallback to Tier 4: Local Heuristic Scorer
+        # -----------------------------------------------------------------------
+        # Tier 4: Local Heuristic Scorer (always available, zero-latency)
+        # -----------------------------------------------------------------------
         t_start = time.time()
-        heuristic_res = self.run_heuristic_scorer(turn_text, speaker, conversation_history, turn_id)
-        latency_ms = (time.time() - t_start) * 1000.0
-        self.cb_registry.get("heuristic").record_success(latency_ms)
-        return heuristic_res, "heuristic", latency_ms
+        try:
+            heuristic_res = self.run_heuristic_scorer(turn_text, speaker, conversation_history, turn_id)
+            latency_ms = (time.time() - t_start) * 1000.0
+            self.cb_registry.get("heuristic").record_success(latency_ms)
+            self.last_response = json.dumps(heuristic_res)
+            return heuristic_res, "heuristic", latency_ms
+        except Exception as heuristic_err:
+            # -----------------------------------------------------------------------
+            # ALL PROVIDERS DEAD — emit safe human-review sentinel response.
+            # This guarantees the pipeline always returns something actionable
+            # instead of raising an unhandled exception that drops the SSE stream.
+            # -----------------------------------------------------------------------
+            latency_ms = (time.time() - t_start) * 1000.0
+            sentinel = {
+                "turn_id": turn_id,
+                "claims": [],
+                "flags": [{
+                    "type": "HUMAN_HANDOFF",
+                    "severity": "CRITICAL",
+                    "detail": f"All LLM providers failed including heuristic fallback. Error: {heuristic_err}",
+                    "kb_fact_id": None,
+                    "claimed_value": None,
+                    "actual_value": None,
+                }],
+                "promises": [],
+                "language_analysis": {
+                    "is_code_switched": False,
+                    "detected_languages": ["en"],
+                    "intent_preserved": False,
+                    "translation_notes": "Scoring failed — manual review required."
+                },
+                "confidence": 0.0,
+                "reasoning": "All scoring providers exhausted. Routing to human supervisor is mandatory.",
+                "handoff_recommended": True,
+                "handoff_reason": "Complete provider failure — safe sentinel path activated.",
+            }
+            self.last_response = json.dumps(sentinel)
+            return sentinel, "sentinel", latency_ms

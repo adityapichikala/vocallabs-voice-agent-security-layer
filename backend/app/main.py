@@ -224,3 +224,77 @@ async def run_evaluation(curveball: bool = Query(False)):
 async def get_latest_evaluation():
     results = eval_engine.run_benchmark(is_curveball_run=False)
     return results
+
+# ==============================================================================
+#  BRIDGE ROUTES — backward-compatible with the Next.js frontend
+#  These mirror the old root main.py API surface so page.tsx needs zero changes.
+# ==============================================================================
+
+from fastapi.responses import FileResponse as _FileResponse
+
+@app.get("/audio/{filename}")
+async def serve_audio(filename: str):
+    """Serve WAV files from backend/data/audio/ for browser playback."""
+    # Try new canonical location first, then legacy fallback
+    for candidate in [settings.audio_dir / filename, settings.root_test_calls_dir / filename]:
+        if candidate.exists():
+            return _FileResponse(candidate)
+    raise HTTPException(status_code=404, detail=f"Audio file not found: {filename}")
+
+
+@app.get("/health")
+async def health_check():
+    """Lightweight health + provider availability endpoint."""
+    audio_files = sorted(
+        f.name for f in settings.audio_dir.glob("*.wav")
+    ) if settings.audio_dir.exists() else []
+    return {
+        "status": "ok",
+        "gemini_configured": bool(settings.gemini_api_key),
+        "groq_configured": bool(settings.groq_api_key),
+        "ollama_enabled": settings.ollama_enabled,
+        "ollama_model": settings.ollama_model,
+        "audio_files": audio_files,
+        "providers": cb_registry.get_all_statuses() if cb_registry else {},
+    }
+
+
+@app.get("/analyze")
+@app.post("/analyze")
+async def analyze_bridge(
+    filename: str = Query(..., description="WAV filename, e.g. test_2_hallucination.wav"),
+    force_outage: bool = Query(False, description="Simulate Gemini outage to demo cascade"),
+    speed: float = Query(2.0, description="Playback speed multiplier for turn delays"),
+):
+    """
+    SSE bridge route — compatible with the existing Next.js frontend.
+
+    Auto-creates a lightweight call session and streams pipeline events.
+    The force_outage flag maps to the circuit-breaker simulation switches
+    so the 🔥 toggle in the UI correctly cascades Gemini → Groq → Heuristic.
+    """
+    if force_outage:
+        cb_registry.get("gemini").set_simulated_outage(True)
+        cb_registry.get("groq").set_simulated_outage(False)  # keep Groq alive for visible cascade
+    else:
+        cb_registry.get("gemini").set_simulated_outage(False)
+        cb_registry.get("groq").set_simulated_outage(False)
+
+    import time as _time
+    call_id = f"bridge_{filename.replace('.wav','').replace('.','_')}_{int(_time.time())}"
+    session = DatabaseManager.create_or_get_call(
+        call_id=call_id,
+        audio_hash=f"bridge_{call_id}",
+        filename=filename,
+        duration=60.0,
+    )
+
+    async def event_generator():
+        async for ev in pipeline_mgr.execute_call_pipeline(session, filename, speed_multiplier=speed):
+            yield {
+                "id": str(ev["seq_id"]),
+                "event": ev["event"],
+                "data": json.dumps(ev["data"]),
+            }
+
+    return EventSourceResponse(event_generator())

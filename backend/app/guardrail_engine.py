@@ -14,6 +14,10 @@ class GuardrailEngine:
     def __init__(self):
         self.fallback_chain = FallbackChain()
         self.handoff_cooldown_turns: int = 5
+        # Populated after each evaluate_turn for cost tracking
+        self.last_prompt: str = ""
+        self.last_response: str = ""
+        self.last_usage_metadata: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def compute_promise_hash(target_entity: str, action: str, deadline: str, condition: Optional[str] = None) -> str:
@@ -40,6 +44,11 @@ class GuardrailEngine:
             conversation_history=history_dicts,
             turn_id=turn.id
         )
+
+        # Expose last prompt/response for CostTracker
+        self.last_prompt = self.fallback_chain.last_prompt
+        self.last_response = self.fallback_chain.last_response
+        self.last_usage_metadata = self.fallback_chain.last_usage_metadata
 
         generated_flags: List[Flag] = []
         generated_promises: List[Promise] = []

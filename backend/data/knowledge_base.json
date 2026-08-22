@@ -1,293 +1,46 @@
 {
-  "version": "1.4.0",
-  "company_name": "Apex Telecom & Cloud",
-  "last_updated": "2026-08-15",
-  "description": "Authoritative corporate knowledge base for Apex Telecom residential and business broadband, hardware, billing, and support SLA policies.",
-  "facts": [
+  "company": "FastNet Broadband",
+  "description": "Knowledge base for FastNet ISP — used by the AI voice agent to answer customer queries accurately.",
+  "rules": [
     {
-      "id": "KB-PRC-001",
-      "category": "PRICING",
-      "claim_title": "Fiber Standard Plan Monthly Rate",
-      "official_statement": "The Fiber Standard 300 Mbps broadband plan costs exactly ₹699 per month plus 18% GST (total ₹824.82).",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 699,
-        "unit": "INR/month"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["fiber", "pricing", "standard", "monthly", "300mbps"]
+      "rule_id": "R01",
+      "topic": "Refund Policy",
+      "rule": "Refunds are only applicable for service outages that exceed 24 continuous hours. No refund is issued for outages of 24 hours or less."
     },
     {
-      "id": "KB-PRC-002",
-      "category": "PRICING",
-      "claim_title": "Fiber Gigabit Pro Plan Monthly Rate",
-      "official_statement": "The Fiber Gigabit Pro 1 Gbps broadband plan costs exactly ₹1,499 per month plus 18% GST.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 1499,
-        "unit": "INR/month"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["fiber", "gigabit", "pricing", "pro", "1gbps"]
+      "rule_id": "R02",
+      "topic": "Cancellation Fee",
+      "rule": "If a customer cancels their plan within the first 6 months of activation, a cancellation fee of ₹1500 is charged. No cancellation fee applies after 6 months."
     },
     {
-      "id": "KB-PRC-003",
-      "category": "PRICING",
-      "claim_title": "New Connection Installation Fee",
-      "official_statement": "Standard fiber installation fee is ₹500 for monthly billing, but is 100% waived on 6-month or 12-month advance payments.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 500,
-        "unit": "INR"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": true,
-        "max_waiver_value": 500,
-        "escalation_required_above": 500
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["installation", "setup_fee", "waiver", "onboarding"]
+      "rule_id": "R03",
+      "topic": "Plan Speeds",
+      "rule": "FastNet offers two consumer plans: the Basic plan provides speeds of 50 Mbps, and the Pro plan provides speeds of 200 Mbps."
     },
     {
-      "id": "KB-CNC-004",
-      "category": "CANCELLATION",
-      "claim_title": "Cancellation Notice Window and Grace Period",
-      "official_statement": "Customers can cancel anytime with a 7-day prior written or recorded notice. Full refund applies within the initial 30-day trial window.",
-      "canonical_value": {
-        "type": "DURATION",
-        "value": 7,
-        "unit": "DAYS"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["cancellation", "notice_period", "refund", "trial_period"]
+      "rule_id": "R04",
+      "topic": "Callback Window",
+      "rule": "FastNet guarantees a customer callback within a 2-hour window from the time of the request. No specific time slot is guaranteed — only the 2-hour window."
     },
     {
-      "id": "KB-CNC-005",
-      "category": "CANCELLATION",
-      "claim_title": "Early Termination Fee Outside Trial",
-      "official_statement": "Terminating an annual contract before 12 months (outside the 30-day trial) incurs an early termination fee of ₹1,200.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 1200,
-        "unit": "INR"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["cancellation", "termination_fee", "penalty", "contract"]
+      "rule_id": "R05",
+      "topic": "Installation Timeline",
+      "rule": "New broadband installations take between 3 to 5 business days from the date of order confirmation. Weekends and public holidays are excluded."
     },
     {
-      "id": "KB-SLA-006",
-      "category": "SUPPORT_SLA",
-      "claim_title": "Technician Home Visit Turnaround Time",
-      "official_statement": "Standard technician home visits for fiber cuts or hardware failure are scheduled within a 24 to 48 hour window from ticket creation.",
-      "canonical_value": {
-        "type": "DURATION",
-        "value": 48,
-        "unit": "HOURS"
-      },
-      "acceptable_variance_pct": 10,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 24
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["sla", "technician", "dispatch", "repair_window"]
+      "rule_id": "R06",
+      "topic": "Loyalty Discount",
+      "rule": "A 10% loyalty discount is applied to the monthly bill only after a customer has maintained an active subscription for 12 continuous months. The discount does not apply before the 12-month mark."
     },
     {
-      "id": "KB-SLA-007",
-      "category": "SUPPORT_SLA",
-      "claim_title": "Technician Home Visit Inspection Fee",
-      "official_statement": "Technician visit is free for company-side fiber cuts or defective Apex routers. Visits for customer internal wiring or 3rd-party routers cost ₹250.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 250,
-        "unit": "INR"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": true,
-        "max_waiver_value": 250,
-        "escalation_required_above": 250
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["visit_fee", "technician_charge", "inspection"]
+      "rule_id": "R07",
+      "topic": "Billing Cycle",
+      "rule": "FastNet bills on a monthly cycle. Auto-debit is processed on the 5th of every month from the customer's registered payment method."
     },
     {
-      "id": "KB-HDW-008",
-      "category": "HARDWARE",
-      "claim_title": "Wi-Fi 6 Dual-Band Router Replacement Policy",
-      "official_statement": "Apex provides a Wi-Fi 6 router with free replacement warranty during active subscription. Physical or water damage replacement fee is ₹1,000.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 1000,
-        "unit": "INR"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["hardware", "router", "wifi6", "replacement", "warranty"]
-    },
-    {
-      "id": "KB-PRM-009",
-      "category": "PROMOTION",
-      "claim_title": "Authorized Retention and Loyalty Discount Limit",
-      "official_statement": "Agents are authorized to offer a maximum 10% loyalty discount for up to 3 months to prevent customer churn. Lifetime discounts are strictly prohibited.",
-      "canonical_value": {
-        "type": "PERCENTAGE",
-        "value": 10,
-        "unit": "PERCENT"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": true,
-        "max_waiver_value": 10,
-        "escalation_required_above": 10
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["discount", "retention", "loyalty", "promotion_limit"]
-    },
-    {
-      "id": "KB-PRM-010",
-      "category": "PROMOTION",
-      "claim_title": "Student and Senior Citizen Discount",
-      "official_statement": "A verified Student or Senior Citizen discount of 15% is applicable only with valid ID card upload via the portal on annual subscriptions.",
-      "canonical_value": {
-        "type": "PERCENTAGE",
-        "value": 15,
-        "unit": "PERCENT"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["student_discount", "senior_discount", "kyc_verification"]
-    },
-    {
-      "id": "KB-CRD-011",
-      "category": "BILLING_CREDIT",
-      "claim_title": "Agent Discretionary Billing Credit Cap",
-      "official_statement": "First-line voice agents can issue a one-time goodwill credit of up to ₹200 for downtime complaints. Any credit exceeding ₹200 requires Supervisor approval.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 200,
-        "unit": "INR"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": true,
-        "max_waiver_value": 200,
-        "escalation_required_above": 200
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["billing_credit", "goodwill", "waiver_cap", "supervisor_escalation"]
-    },
-    {
-      "id": "KB-SLA-012",
-      "category": "SUPPORT_SLA",
-      "claim_title": "Support Operating Hours and Emergency Callback Window",
-      "official_statement": "Voice support operates 8:00 AM to 10:00 PM IST daily. Outbound promise callbacks must be scheduled within standard 2 to 4 business hours.",
-      "canonical_value": {
-        "type": "DURATION",
-        "value": 4,
-        "unit": "HOURS"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 4
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["support_hours", "callback_sla", "operating_hours"]
-    },
-    {
-      "id": "KB-PRC-013",
-      "category": "PRICING",
-      "claim_title": "Static IP Add-on Rate",
-      "official_statement": "Dedicated Commercial Static IP address add-on is available at ₹250 per month on any active fiber plan.",
-      "canonical_value": {
-        "type": "CURRENCY",
-        "value": 250,
-        "unit": "INR/month"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["static_ip", "addon", "commercial", "pricing"]
-    },
-    {
-      "id": "KB-SEC-014",
-      "category": "SECURITY",
-      "claim_title": "Customer Verification and OTP Auth Requirement",
-      "official_statement": "Agents must never disclose account billing history, password, or modify registered mobile numbers without 4-digit SMS OTP verification.",
-      "canonical_value": {
-        "type": "BOOLEAN",
-        "value": true,
-        "unit": "OTP_REQUIRED"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["security", "otp_verification", "kyc", "pii_protection"]
-    },
-    {
-      "id": "KB-SLA-015",
-      "category": "SUPPORT_SLA",
-      "claim_title": "Regulatory and Legal Escalation Protocol",
-      "official_statement": "If a customer issues explicit legal notices or mentions TRAI consumer court complaints, the call must be immediately transferred to a Senior Escalations Manager.",
-      "canonical_value": {
-        "type": "BOOLEAN",
-        "value": true,
-        "unit": "MANDATORY_TRANSFER"
-      },
-      "acceptable_variance_pct": 0,
-      "allowed_agent_authority": {
-        "can_waive": false,
-        "max_waiver_value": 0,
-        "escalation_required_above": 0
-      },
-      "effective_date": "2026-01-01",
-      "tags": ["legal_escalation", "trai", "compliance", "mandatory_handoff"]
+      "rule_id": "R08",
+      "topic": "Outage Compensation",
+      "rule": "For service outages exceeding 24 continuous hours, FastNet provides compensation of ₹100 per day for each additional day of downtime beyond the initial 24-hour period."
     }
   ]
 }

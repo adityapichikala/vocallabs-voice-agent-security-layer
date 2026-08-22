@@ -9,7 +9,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BACKEND_DIR.parent
 DATA_DIR = BACKEND_DIR / "data"
 SCHEMAS_DIR = DATA_DIR / "schemas"
-AUDIO_DIR = PROJECT_ROOT / "data" / "audio"
+AUDIO_DIR = DATA_DIR / "audio"   # backend/data/audio — WAVs live here after migration
 DB_PATH = BACKEND_DIR / "blackbox.db"
 
 @dataclass
@@ -71,6 +71,8 @@ class Settings:
     kb_file_path: Path = DATA_DIR / "knowledge_base.json"
     test_cases_path: Path = DATA_DIR / "test_cases_metadata.json"
     schemas_dir: Path = SCHEMAS_DIR
-    audio_dir: Path = AUDIO_DIR
+    audio_dir: Path = AUDIO_DIR   # backend/data/audio
+    # Legacy root-level test_calls path (kept for bridge /analyze route)
+    root_test_calls_dir: Path = PROJECT_ROOT / "test_calls"
 
 settings = Settings()

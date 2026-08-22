@@ -10,6 +10,7 @@ from .validators import PipelineStateValidator, ValidationError
 from .database import DatabaseManager
 from .asr_pipeline import ASRPipeline
 from .guardrail_engine import GuardrailEngine
+from .cost_tracker import CostTracker, CallCostSummary
 from .config import settings
 
 class PipelineManager:
@@ -52,6 +53,7 @@ class PipelineManager:
 
         self._active_pipelines[session.id] = True
         seq_id = 0
+        cost_summary = CallCostSummary()  # accumulate per-turn costs
 
         def make_event(event_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
             nonlocal seq_id
@@ -122,6 +124,17 @@ class PipelineManager:
 
                     evaluated_turns.append(turn)
 
+                    # Compute cost for this turn
+                    prompt_text = self.guardrail.last_prompt or ""
+                    response_text = self.guardrail.last_response or ""
+                    turn_cost = CostTracker.record_turn(
+                        summary=cost_summary,
+                        provider=provider,
+                        prompt_text=prompt_text,
+                        response_text=response_text,
+                        usage_metadata=self.guardrail.last_usage_metadata,
+                    )
+
                     # Emit evaluation result
                     yield make_event("turn_evaluated", {
                         "call_id": session.id,
@@ -133,7 +146,11 @@ class PipelineManager:
                         "latency_ms": round(lat_ms, 1),
                         "handoff_triggered": handoff,
                         "handoff_reason": handoff_reason,
-                        "progress_pct": round(((idx + 1) / total_turns) * 100, 1)
+                        "progress_pct": round(((idx + 1) / total_turns) * 100, 1),
+                        # cost telemetry
+                        "cost_usd":   turn_cost.to_dict()["cost_usd"],
+                        "tokens_in":  turn_cost.tokens_in,
+                        "tokens_out": turn_cost.tokens_out,
                     })
 
                     # Emit handoff alert on FIRST trigger only
@@ -193,7 +210,9 @@ class PipelineManager:
                 "handoff_triggered": session.handoff_triggered,
                 "handoff_reason": session.handoff_reason,
                 "flags_summary": [f.to_dict() for f in session.flags],
-                "promises_summary": [p.to_dict() for p in session.promises]
+                "promises_summary": [p.to_dict() for p in session.promises],
+                # cost summary for the full call
+                "cost_summary": cost_summary.to_dict(),
             })
 
         except Exception as e:
