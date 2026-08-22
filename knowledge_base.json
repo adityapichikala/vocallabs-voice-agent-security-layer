@@ -1,0 +1,46 @@
+{
+  "company": "FastNet Broadband",
+  "description": "Knowledge base for FastNet ISP — used by the AI voice agent to answer customer queries accurately.",
+  "rules": [
+    {
+      "rule_id": "R01",
+      "topic": "Refund Policy",
+      "rule": "Refunds are only applicable for service outages that exceed 24 continuous hours. No refund is issued for outages of 24 hours or less."
+    },
+    {
+      "rule_id": "R02",
+      "topic": "Cancellation Fee",
+      "rule": "If a customer cancels their plan within the first 6 months of activation, a cancellation fee of ₹1500 is charged. No cancellation fee applies after 6 months."
+    },
+    {
+      "rule_id": "R03",
+      "topic": "Plan Speeds",
+      "rule": "FastNet offers two consumer plans: the Basic plan provides speeds of 50 Mbps, and the Pro plan provides speeds of 200 Mbps."
+    },
+    {
+      "rule_id": "R04",
+      "topic": "Callback Window",
+      "rule": "FastNet guarantees a customer callback within a 2-hour window from the time of the request. No specific time slot is guaranteed — only the 2-hour window."
+    },
+    {
+      "rule_id": "R05",
+      "topic": "Installation Timeline",
+      "rule": "New broadband installations take between 3 to 5 business days from the date of order confirmation. Weekends and public holidays are excluded."
+    },
+    {
+      "rule_id": "R06",
+      "topic": "Loyalty Discount",
+      "rule": "A 10% loyalty discount is applied to the monthly bill only after a customer has maintained an active subscription for 12 continuous months. The discount does not apply before the 12-month mark."
+    },
+    {
+      "rule_id": "R07",
+      "topic": "Billing Cycle",
+      "rule": "FastNet bills on a monthly cycle. Auto-debit is processed on the 5th of every month from the customer's registered payment method."
+    },
+    {
+      "rule_id": "R08",
+      "topic": "Outage Compensation",
+      "rule": "For service outages exceeding 24 continuous hours, FastNet provides compensation of ₹100 per day for each additional day of downtime beyond the initial 24-hour period."
+    }
+  ]
+}

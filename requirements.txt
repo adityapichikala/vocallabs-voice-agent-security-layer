@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sse-starlette
+groq
+google-genai
+ollama
+edge-tts
+python-multipart
+pydantic
+streamlit
+requests
+python-dotenv
