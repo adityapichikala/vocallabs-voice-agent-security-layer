@@ -74,8 +74,8 @@ def on_startup():
     kb_repo = KnowledgeBaseRepository.get_instance()
     eval_engine = EvalEngine()
 
-@app.get("/")
-async def root():
+@app.get("/api/status")
+async def get_status():
     return {
         "app": settings.app_name,
         "version": settings.app_version,
