@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PromiseSchema",
+  "type": "object",
+  "required": [
+    "promise_id",
+    "turn_id",
+    "who",
+    "action",
+    "target_entity",
+    "deadline_raw",
+    "state",
+    "confidence"
+  ],
+  "properties": {
+    "promise_id": { "type": "string" },
+    "turn_id": { "type": "string" },
+    "promise_hash": { "type": "string" },
+    "who": { "type": "string", "enum": ["agent", "customer"] },
+    "action": { "type": "string" },
+    "target_entity": {
+      "type": "string",
+      "enum": ["CALLBACK", "BILLING_CREDIT", "REFUND", "HARDWARE_REPLACEMENT", "TECHNICIAN_VISIT", "DISCOUNT", "TICKET_ESCALATION"]
+    },
+    "commitment_value": {
+      "type": ["object", "null"],
+      "properties": {
+        "amount": { "type": "number" },
+        "unit": { "type": "string" }
+      }
+    },
+    "deadline_raw": { "type": "string" },
+    "deadline_parsed_iso": { "type": ["string", "null"] },
+    "condition": { "type": ["string", "null"] },
+    "authority_check": {
+      "type": "object",
+      "required": ["is_authorized", "kb_reference_id", "violation_reason"],
+      "properties": {
+        "is_authorized": { "type": "boolean" },
+        "kb_reference_id": { "type": ["string", "null"] },
+        "violation_reason": { "type": ["string", "null"] }
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["PENDING", "FULFILLED", "BROKEN", "EXPIRED", "DUPLICATE"]
+    },
+    "mention_count": { "type": "integer", "minimum": 1 },
+    "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+  }
+}

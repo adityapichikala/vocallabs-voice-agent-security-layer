@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LLMResponseSchema",
+  "type": "object",
+  "required": ["turn_id", "flags", "claims", "promises", "confidence", "reasoning", "handoff_recommended"],
+  "properties": {
+    "turn_id": { "type": "string" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_text", "is_assertion", "kb_fact_id", "verdict", "claimed_value", "actual_value", "variance_pct"],
+        "properties": {
+          "claim_text": { "type": "string" },
+          "is_assertion": { "type": "boolean" },
+          "kb_fact_id": { "type": ["string", "null"] },
+          "verdict": { "type": "string", "enum": ["GROUNDED", "HALLUCINATED", "UNVERIFIABLE", "SCOPE_MISMATCH"] },
+          "claimed_value": { "type": ["string", "number", "null"] },
+          "actual_value": { "type": ["string", "number", "null"] },
+          "variance_pct": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "severity", "detail"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "HALLUCINATION",
+              "PROMISE_MADE",
+              "LOW_CONFIDENCE",
+              "CODE_SWITCH_ERROR",
+              "ESCALATION_NEEDED",
+              "ASR_UNCERTAIN",
+              "UNVERIFIABLE",
+              "PROMISE_CONFLICT",
+              "UNAUTHORIZED_PROMISE",
+              "EXCESSIVE_PROMISES",
+              "SCOPE_MISMATCH",
+              "HUMAN_HANDOFF"
+            ]
+          },
+          "severity": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "detail": { "type": "string" },
+          "kb_fact_id": { "type": ["string", "null"] },
+          "claimed_value": { "type": ["string", "null"] },
+          "actual_value": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "promises": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["who", "action", "target_entity", "deadline_raw", "is_authorized"],
+        "properties": {
+          "who": { "type": "string", "enum": ["agent", "customer"] },
+          "action": { "type": "string" },
+          "target_entity": { "type": "string" },
+          "deadline_raw": { "type": "string" },
+          "condition": { "type": ["string", "null"] },
+          "is_authorized": { "type": "boolean" },
+          "violation_reason": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "language_analysis": {
+      "type": "object",
+      "properties": {
+        "is_code_switched": { "type": "boolean" },
+        "detected_languages": { "type": "array", "items": { "type": "string" } },
+        "intent_preserved": { "type": "boolean" },
+        "translation_notes": { "type": ["string", "null"] }
+      }
+    },
+    "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+    "reasoning": { "type": "string", "minLength": 1 },
+    "handoff_recommended": { "type": "boolean" },
+    "handoff_reason": { "type": ["string", "null"] }
+  }
+}

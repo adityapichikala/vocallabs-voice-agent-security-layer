@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KnowledgeBaseSchema",
+  "type": "object",
+  "required": ["version", "company_name", "last_updated", "facts"],
+  "properties": {
+    "version": { "type": "string" },
+    "company_name": { "type": "string" },
+    "last_updated": { "type": "string", "format": "date" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "claim_title",
+          "official_statement",
+          "canonical_value",
+          "acceptable_variance_pct",
+          "allowed_agent_authority",
+          "effective_date",
+          "tags"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^KB-[A-Z]{3,4}-[0-9]{3}$" },
+          "category": {
+            "type": "string",
+            "enum": ["PRICING", "CANCELLATION", "SUPPORT_SLA", "HARDWARE", "PROMOTION", "BILLING_CREDIT", "SECURITY"]
+          },
+          "claim_title": { "type": "string" },
+          "official_statement": { "type": "string" },
+          "canonical_value": {
+            "type": "object",
+            "required": ["type", "value", "unit"],
+            "properties": {
+              "type": { "type": "string", "enum": ["CURRENCY", "DURATION", "PERCENTAGE", "BOOLEAN", "TEXT"] },
+              "value": { "type": ["number", "string", "boolean"] },
+              "unit": { "type": "string" }
+            }
+          },
+          "acceptable_variance_pct": { "type": "number", "minimum": 0, "maximum": 100 },
+          "allowed_agent_authority": {
+            "type": "object",
+            "required": ["can_waive", "max_waiver_value", "escalation_required_above"],
+            "properties": {
+              "can_waive": { "type": "boolean" },
+              "max_waiver_value": { "type": "number" },
+              "escalation_required_above": { "type": "number" }
+            }
+          },
+          "effective_date": { "type": "string", "format": "date" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

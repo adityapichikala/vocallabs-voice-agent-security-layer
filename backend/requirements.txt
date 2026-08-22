@@ -1,0 +1,22 @@
+# Core Web & Async Server
+fastapi>=0.110.0
+uvicorn>=0.29.0
+sse-starlette>=2.0.0
+python-multipart>=0.0.9
+pydantic>=2.6.0
+
+# LLM Providers & Fallback Orchestration
+requests>=2.31.0
+httpx>=0.27.0
+groq>=0.5.0
+google-generativeai>=0.5.0
+
+# Speech-to-Text (ASR) & Audio Processing
+faster-whisper>=1.0.0
+edge-tts>=6.1.10
+soundfile>=0.12.1
+numpy>=1.26.0
+
+# Database & Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
