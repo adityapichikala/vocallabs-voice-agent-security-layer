@@ -1,6 +1,7 @@
 """CLI Benchmark Runner for Black Box Evaluation Suite."""
 import sys
 import json
+import asyncio
 from pathlib import Path
 
 # Add backend directory to sys.path
@@ -13,7 +14,7 @@ from app.database import init_db
 def format_row(cols, widths):
     return " | ".join(str(c).ljust(w) for c, w in zip(cols, widths))
 
-def main():
+async def main_async():
     init_db()
     engine = EvalEngine()
     print("=" * 85)
@@ -21,10 +22,10 @@ def main():
     print("=" * 85 + "\n")
     print("Running evaluation across all 20 test cases...\n")
 
-    results = engine.run_benchmark(is_curveball_run=False)
+    results = await engine.run_benchmark(is_curveball_run=False)
 
-    headers = ["Case ID", "Category", "TP", "FP", "FN", "Prec", "Recall", "F1", "Lat(ms)", "Verdict"]
-    widths = [8, 22, 4, 4, 4, 6, 6, 6, 8, 8]
+    headers = ["Case ID", "Category", "TP", "FP", "FN", "Prec", "Recall", "F1", "Lat(ms)", "Cost($)", "Verdict"]
+    widths = [8, 22, 4, 4, 4, 6, 6, 6, 8, 8, 8]
 
     print("-" * 85)
     print(format_row(headers, widths))
@@ -41,6 +42,7 @@ def main():
             f"{c['recall']:.2f}",
             f"{c['f1']:.2f}",
             f"{c['latency_ms']:.1f}",
+            f"{c['cost_usd']:.5f}",
             "MATCH" if c["verdict_matched"] else "MISMATCH"
         ]
         print(format_row(row, widths))
@@ -62,8 +64,22 @@ def main():
     print(f"  p90          : {lat['p90']} ms")
     print(f"  p99          : {lat['p99']} ms")
 
+    print("\n=== JSON SUMMARY ===")
+    summary_json = {
+        "accuracy": acc["accuracy"],
+        "precision": acc["precision"],
+        "recall": acc["recall"],
+        "f1": acc["f1_score"],
+        "latency_percentiles": results["latency_percentiles_ms"],
+        "total_cases": len(results["cases"])
+    }
+    print(json.dumps(summary_json, indent=2))
+    
     print("\n" + "=" * 85)
     print("[DONE] Benchmark run complete.")
+
+def main():
+    asyncio.run(main_async())
 
 if __name__ == "__main__":
     main()

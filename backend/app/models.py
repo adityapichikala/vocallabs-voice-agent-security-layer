@@ -160,6 +160,7 @@ class EvalMetrics:
     verdict_matched: bool
     handoff_matched: bool
     is_curveball_run: bool = False
+    cost_usd: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

@@ -3,6 +3,7 @@ import json
 import re
 import time
 import threading
+import asyncio
 import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional, Tuple
@@ -19,31 +20,6 @@ class FallbackChain:
         self.last_prompt: str = ""
         self.last_response: str = ""
         self.last_usage_metadata: Optional[Dict[str, Any]] = None
-
-    @staticmethod
-    def _call_with_timeout(fn, timeout: float, *args, **kwargs):
-        """
-        Runs a blocking function in a daemon thread with a hard wall-clock timeout.
-        Raises TimeoutError if the function does not complete in time.
-        This prevents urllib blocking calls from hanging the pipeline indefinitely.
-        """
-        result_container: Dict[str, Any] = {}
-
-        def _target():
-            try:
-                result_container["value"] = fn(*args, **kwargs)
-            except Exception as exc:
-                result_container["error"] = exc
-
-        t = threading.Thread(target=_target, daemon=True)
-        t.start()
-        t.join(timeout)
-        if t.is_alive():
-            raise TimeoutError(f"Provider call timed out after {timeout}s")
-        if "error" in result_container:
-            raise result_container["error"]
-        return result_container["value"]
-
 
     def build_prompt(self, turn_text: str, speaker: str, conversation_history: List[Dict[str, Any]], turn_id: str) -> str:
         kb_context = self.kb.get_prompt_context()
@@ -579,7 +555,7 @@ Respond ONLY with a valid JSON object matching this schema:
             "handoff_reason": handoff_reason
         }
 
-    def execute_scoring_chain(
+    async def execute_scoring_chain(
         self,
         turn_text: str,
         speaker: str,
@@ -597,8 +573,9 @@ Respond ONLY with a valid JSON object matching this schema:
           4:  Ollama (local) — 10s timeout
           5:  Heuristic (deterministic, zero-latency)
           6:  SAFE_RESPONSE_SENTINEL (hardcoded, never fails)
+        6:  SAFE_RESPONSE_SENTINEL (hardcoded, never fails)
 
-        Each cloud LLM call is thread-guarded with _call_with_timeout().
+        Each cloud LLM call is guarded with asyncio.wait_for.
         Returns: (validated_output, provider_used, latency_ms)
         """
         prompt = self.build_prompt(turn_text, speaker, conversation_history, turn_id)
@@ -637,8 +614,11 @@ Respond ONLY with a valid JSON object matching this schema:
 
             t_start = time.time()
             try:
-                # Thread-guarded call — strict 3s wall-clock hard limit
-                raw_response = self._call_with_timeout(call_fn, timeout, prompt, timeout=timeout)
+                # Asyncio-guarded call — strict wall-clock hard limit
+                raw_response = await asyncio.wait_for(
+                    asyncio.to_thread(call_fn, prompt, timeout=timeout),
+                    timeout=timeout
+                )
                 latency_ms = (time.time() - t_start) * 1000.0
                 validated = LLMOutputValidator.parse_and_validate(raw_response, turn_id)
                 cb.record_success(latency_ms)

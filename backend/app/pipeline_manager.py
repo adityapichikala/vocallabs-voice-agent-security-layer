@@ -106,7 +106,7 @@ class PipelineManager:
 
                 # Evaluate turn against guardrails
                 try:
-                    flags, promises, handoff, handoff_reason, provider, lat_ms = self.guardrail.evaluate_turn(
+                    flags, promises, handoff, handoff_reason, provider, lat_ms = await self.guardrail.evaluate_turn(
                         call_session=session,
                         turn=turn,
                         recent_turns=evaluated_turns,

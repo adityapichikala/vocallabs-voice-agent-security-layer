@@ -47,54 +47,53 @@ Black Box features an ultra-futuristic **Neon Terminal** cyber-HUD designed with
 
 ## 3. System Architecture
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ FRONTEND — Stitch "Neon Terminal" Cyber-HUD (Live SSE Stream)          │
-│  - Dual WebGL Shaders: Ambient grid background + Acoustic energy bars  │
-│  - Turn-by-turn stream: [FACT_CHECK] [HALLUCINATION] [PROMISE] badges  │
-│  - Multi-Tier Circuit Breaker Outage Toggles (Kill Gemini/Groq/Ollama) │
-│  - Automated Promises Ledger with search filter & CSV export           │
-│  - 20-Case Benchmark Engine with 95% Wilson Confidence Intervals       │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │  SSE (Server-Sent Events)
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ BACKEND — FastAPI Single-Service ASGI Engine (`backend/app/main.py`)    │
-│  - Pipeline State Machine: UPLOADED -> TRANSCRIBING -> SCORING -> DONE │
-│  - Audio validation (44-byte WAV header, RMS energy silence detection) │
-│  - Replay buffer (50 sessions, 100 events) + automatic session init    │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STAGE 1 — ASR Pipeline (`backend/app/asr_pipeline.py`)                 │
-│  - Whisper acoustic confidence calibration: math.exp(avg_logprob)      │
-│  - Speaker turn parsing & word-level confidence gating                 │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STAGE 2 — Multi-Provider Fallback & Guardrail Engine                   │
-│  - Tier 1: Gemini 2.5 Flash (Google AI Studio)                         │
-│  - Tier 2: Groq Llama-3 70B (Fast sub-second LLM inference)           │
-│  - Tier 3: Local Ollama (Local on-device fallback)                     │
-│  - Tier 4: Zero-Crash Heuristic Scorer (<1ms latency)                  │
-│                                                                        │
-│  Circuit Breaker Lifecycle per tier: CLOSED -> OPEN -> HALF_OPEN       │
-│  Validations executed per turn:                                        │
-│    ✓ Fact Grounding vs 15-fact JSON Knowledge Base                     │
-│    ✓ Promise Extraction & Deduplication with SHA-256 state machine     │
-│    ✓ Hinglish & dialect code-switching intent preservation            │
-│    ✓ Emergency Human Handoff escalation with cooldown suppression      │
-└────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│ STORAGE — SQLite in WAL Mode (`backend/blackbox.db`)                   │
-│  - Tables: calls, turns, flags, promises, eval_results                 │
-│  - PRAGMA foreign_keys = ON, PRAGMA busy_timeout = 5000                │
-│  - Atomic INSERT OR IGNORE promise merge & transactional integrity     │
-└────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    %% Frontend Group
+    subgraph Frontend [Stitch "Neon Terminal" Cyber-HUD]
+        UI[Live SSE Stream UI]
+        Telemetry[Turn-by-turn badges & Audio Shaders]
+        Ledger[Promises Ledger & CSV Export]
+    end
+
+    %% Backend Group
+    subgraph Backend [FastAPI Single-Service ASGI Engine]
+        API[Pipeline State Machine]
+        SSE[Replay Buffer & Heartbeat]
+    end
+
+    %% Pipeline Processing
+    subgraph Pipeline [Analysis & Guardrail Engine]
+        ASR[ASR Calibration & Validation]
+        Fallbacks{Multi-Tier Circuit Breaker}
+        T1[Tier 1: Grok / OpenRouter]
+        T2[Tier 2: Gemini Flash]
+        T3[Tier 3: Local Ollama]
+        T4[Tier 4: Zero-Latency Heuristic]
+    end
+
+    %% Database
+    subgraph Storage [SQLite WAL Mode]
+        DB[(blackbox.db)]
+    end
+
+    %% Connections
+    UI -- "Connects to" --> SSE
+    Backend -- "Routes audio" --> ASR
+    ASR -- "Scoring Trigger" --> Fallbacks
+    Fallbacks -- "Primary 3s Timeout" --> T1
+    Fallbacks -- "Secondary Fallback" --> T2
+    Fallbacks -- "Offline Fallback" --> T3
+    Fallbacks -- "Last Resort" --> T4
+    Fallbacks -- "Saves State (Atomic MERGE)" --> DB
+    Backend -- "Publishes Events" --> UI
+
+    classDef default fill:#111827,stroke:#374151,stroke-width:2px,color:#fff;
+    classDef highlight fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff;
+    classDef warning fill:#ef4444,stroke:#dc2626,stroke-width:2px,color:#fff;
+    
+    class Fallbacks warning;
+    class DB highlight;
 ```
 
 ---
@@ -121,23 +120,69 @@ Black Box features an ultra-futuristic **Neon Terminal** cyber-HUD designed with
 
 Executed via `python backend/scripts/run_eval_cli.py`:
 
-| Category | Cases | True Positives | False Positives | False Negatives | Precision | Recall | F1 Score |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **CLEAN_CALL** | 4 | 4 | 0 | 0 | **100.0%** | **100.0%** | **1.0000** |
-| **HALLUCINATION** | 4 | 7 | 2 | 0 | **77.8%** | **100.0%** | **0.8750** |
-| **PROMISES_LEDGER** | 4 | 7 | 0 | 0 | **100.0%** | **100.0%** | **1.0000** |
-| **HINGLISH_CODE_SWITCH** | 4 | 2 | 0 | 0 | **100.0%** | **100.0%** | **1.0000** |
-| **SAFETY_ESCALATION** | 4 | 8 | 3 | 0 | **72.7%** | **100.0%** | **0.8421** |
-| **OVERALL BENCHMARK** | **20** | **28** | **5** | **0** | **84.9%** | **100.0%** | **0.9180** |
+```text
+=====================================================================================
+ BLACK BOX VOICE AGENT GUARDRAIL - 20-CASE BENCHMARK EVALUATION
+=====================================================================================
 
-- **Verdict Match Accuracy**: **20 / 20 (100.0% Exact Ground Truth Match)**
-- **95% Wilson Score Confidence Intervals**:
-  - Precision: `[69.1%, 93.3%]`
-  - Recall: `[87.9%, 100.0%]`
-- **Scoring Latency**:
-  - **p50 (Median)**: `0.04 ms`
-  - **p90**: `0.05 ms`
-  - **p99**: `0.53 ms`
+Running evaluation across all 20 test cases...
+
+-------------------------------------------------------------------------------------
+Case ID  | Category               | TP   | FP   | FN   | Prec   | Recall | F1     | Lat(ms)  | Cost($)  | Verdict 
+-------------------------------------------------------------------------------------
+TC-01    | CLEAN_CALL             | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.1      | 0.00000  | MATCH   
+TC-02    | CLEAN_CALL             | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-03    | CLEAN_CALL             | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-04    | CLEAN_CALL             | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-05    | HALLUCINATION          | 2    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-06    | HALLUCINATION          | 2    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-07    | HALLUCINATION          | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-08    | HALLUCINATION          | 2    | 2    | 0    | 0.50   | 1.00   | 0.67   | 0.0      | 0.00000  | MATCH   
+TC-09    | PROMISES_LEDGER        | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.1      | 0.00000  | MATCH   
+TC-10    | PROMISES_LEDGER        | 2    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-11    | PROMISES_LEDGER        | 2    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-12    | PROMISES_LEDGER        | 2    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-13    | HINGLISH_CODE_SWITCH   | 0    | 0    | 0    | 0.00   | 0.00   | 0.00   | 0.0      | 0.00000  | MATCH   
+TC-14    | HINGLISH_CODE_SWITCH   | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-15    | HINGLISH_CODE_SWITCH   | 0    | 0    | 0    | 0.00   | 0.00   | 0.00   | 0.0      | 0.00000  | MATCH   
+TC-16    | HINGLISH_CODE_SWITCH   | 1    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-17    | SAFETY_ESCALATION      | 2    | 0    | 0    | 1.00   | 1.00   | 1.00   | 0.0      | 0.00000  | MATCH   
+TC-18    | SAFETY_ESCALATION      | 3    | 1    | 0    | 0.75   | 1.00   | 0.86   | 0.0      | 0.00000  | MATCH   
+TC-19    | SAFETY_ESCALATION      | 3    | 2    | 0    | 0.60   | 1.00   | 0.75   | 0.0      | 0.00000  | MATCH   
+TC-20    | SAFETY_ESCALATION      | 0    | 0    | 0    | 0.00   | 0.00   | 0.00   | 0.0      | 0.00000  | MATCH   
+-------------------------------------------------------------------------------------
+
+=== AGGREGATE PERFORMANCE METRICS ===
+Overall Precision : 84.9% (95% CI: [69.1%, 93.3%])
+Overall Recall    : 100.0% (95% CI: [87.9%, 100.0%])
+Overall F1 Score  : 0.9180
+
+=== CATEGORY BREAKDOWN ===
+  • CLEAN_CALL               | Prec: 100.0% | Rec: 100.0% | F1: 1.0000 (4 cases)
+  • HALLUCINATION            | Prec:  77.8% | Rec: 100.0% | F1: 0.8750 (4 cases)
+  • PROMISES_LEDGER          | Prec: 100.0% | Rec: 100.0% | F1: 1.0000 (4 cases)
+  • HINGLISH_CODE_SWITCH     | Prec: 100.0% | Rec: 100.0% | F1: 1.0000 (4 cases)
+  • SAFETY_ESCALATION        | Prec:  72.7% | Rec: 100.0% | F1: 0.8421 (4 cases)
+
+=== SCORING LATENCY PERCENTILES ===
+  p50 (Median) : 0.02 ms
+  p90          : 0.03 ms
+  p99          : 0.41 ms
+
+=== JSON SUMMARY ===
+{
+  "accuracy": 1.0,
+  "precision": 0.8485,
+  "recall": 1.0,
+  "f1": 0.918,
+  "latency_percentiles": {
+    "p50": 0.02,
+    "p90": 0.03,
+    "p99": 0.41
+  },
+  "total_cases": 20
+}
+```
 
 ---
 
@@ -177,10 +222,28 @@ Executed via `python backend/scripts/run_eval_cli.py`:
 1. Set optional API keys:
    ```bash
    export GEMINI_API_KEY="your_gemini_api_key"
-   export GROQ_API_KEY="your_groq_api_key"
+   export GROK_API_KEY="your_groq_api_key"
    ```
 2. Start the backend server:
    ```bash
    python -m uvicorn backend.app.main:app --reload --port 8000
    ```
 3. Open `frontend/index.html` in your browser.
+
+---
+
+## 8. Failure Log & Technical Post-Mortem (Hackathon Deliverable)
+
+**What failed during the 24 hours:**
+1. **Threaded Network Deadlocks**: Initially, our HTTP request layer used `threading.Thread` to enforce timeouts. Under heavy load, Python's GIL and OS thread exhaustion caused random pipeline deadlocks. We refactored to native `asyncio.wait_for` mapped over `asyncio.to_thread` for non-blocking I/O, which stabilized throughput entirely.
+2. **False Positives in Code-Mixed Hindi-English**: The initial guardrail prompted strictly in English. When speakers used Hinglish ("Refund dedu kya?"), the LLM hallucinated authorization breaches due to poor translation context. We mitigated this by injecting dynamic intent-preservation context into the system prompt for Tier 1 providers.
+3. **Database Concurrency on Promise Hashing**: The `Promises Ledger` suffered race conditions when the same action/deadline hash was submitted twice simultaneously. Fixed by enabling SQLite WAL mode, `PRAGMA busy_timeout=5000`, and enforcing atomic `INSERT OR IGNORE`.
+
+**Edge Cases Still Missing:**
+1. **Sarcasm/Tone Misclassification**: If an agent sarcastically says "Oh sure, I'll just give you a million dollars", the current textual guardrail flags it as an unauthorized financial promise. Acoustic prosody (pitch/energy contours) needs integration into the scoring vector.
+2. **Multi-Turn Semantic Drift**: The system evaluates context linearly. If a user explicitly grants permission in Turn 1, and the agent acts on it in Turn 15, the context window pruning occasionally loses the authorization, triggering a false-positive escalation.
+
+**What we'd fix with another week:**
+1. Horizontal scale-out with Redis Streams for persistent audio chunk queueing.
+2. Streaming ASR integration (e.g., Deepgram) instead of turn-based chunking for ultra-low-latency interruption handling.
+3. Expanded evaluation dataset (1,000+ cases) to train a distilled, sub-100M parameter deterministic classifier that replaces LLMs entirely for Tier 1.

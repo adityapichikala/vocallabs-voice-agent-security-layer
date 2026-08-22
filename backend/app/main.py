@@ -219,12 +219,12 @@ async def stream_call_analysis(call_id: str, request: Request, speed: float = Qu
 
 @app.post("/api/eval/run")
 async def run_evaluation(curveball: bool = Query(False)):
-    results = eval_engine.run_benchmark(is_curveball_run=curveball)
+    results = await eval_engine.run_benchmark(is_curveball_run=curveball)
     return results
 
 @app.get("/api/eval/latest")
 async def get_latest_evaluation():
-    results = eval_engine.run_benchmark(is_curveball_run=False)
+    results = await eval_engine.run_benchmark(is_curveball_run=False)
     return results
 
 @app.post("/api/eval/simulate-timeout")
@@ -234,15 +234,16 @@ async def simulate_timeout(turn_text: str = Query("Hello, I need help with my bi
     and returns a structured proof that the 3-second timeout + safe sentinel path works.
     Circuit breakers are automatically restored after the test.
     """
-    return eval_engine.simulate_timeout_scenario(turn_text=turn_text)
+    return await eval_engine.simulate_timeout_scenario(turn_text=turn_text)
 
 @app.post("/api/eval/all-providers-dead")
 async def all_providers_dead():
     """
-    Extreme failure test: trips ALL providers, confirms pipeline returns
-    SAFE_RESPONSE_SENTINEL instantly without raising an exception.
+    Extreme failure test: trips ALL provider circuit breakers.
+    Returns a structured proof that the pipeline gracefully degradates to the 
+    SAFE_RESPONSE_SENTINEL instantly.
     """
-    return eval_engine.simulate_all_providers_dead()
+    return await eval_engine.simulate_all_providers_dead()
 
 # ==============================================================================
 #  BRIDGE ROUTES — backward-compatible with the Next.js frontend

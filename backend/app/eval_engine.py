@@ -12,6 +12,7 @@ from .models import (
 from .guardrail_engine import GuardrailEngine
 from .database import DatabaseManager
 from .config import settings
+from .cost_tracker import CostTracker
 
 class EvalEngine:
     def __init__(self):
@@ -28,7 +29,7 @@ class EvalEngine:
         margin = (z * math.sqrt((p * (1 - p) / total) + (z**2) / (4 * total**2))) / denominator
         return max(0.0, round(center - margin, 4)), min(1.0, round(center + margin, 4))
 
-    def run_benchmark(self, is_curveball_run: bool = False) -> Dict[str, Any]:
+    async def run_benchmark(self, is_curveball_run: bool = False) -> Dict[str, Any]:
         if not settings.test_cases_path.exists():
             raise FileNotFoundError(f"Test cases metadata not found at: {settings.test_cases_path}")
 
@@ -43,6 +44,7 @@ class EvalEngine:
         total_tp = 0
         total_fp = 0
         total_fn = 0
+        total_verdict_matches = 0
         total_clean_correct = 0
         total_clean_cases = 0
 
@@ -91,13 +93,24 @@ class EvalEngine:
             evaluated_turns: List[Turn] = []
             tc_latencies = []
             provider_used = "heuristic"
+            tc_cost = 0.0
 
             for turn in turns:
-                flags, promises, handoff, handoff_reason, prov, lat_ms = self.guardrail.evaluate_turn(
+                flags, promises, handoff, handoff_reason, prov, lat_ms = await self.guardrail.evaluate_turn(
                     call_session=session,
                     turn=turn,
                     recent_turns=evaluated_turns
                 )
+                
+                # Approximate cost using CostTracker
+                prompt_text = self.guardrail.last_prompt or ""
+                response_text = self.guardrail.last_response or ""
+                usage = self.guardrail.last_usage_metadata or {}
+                tokens_in = usage.get("prompt_tokens", usage.get("input_tokens", CostTracker.estimate_tokens(prompt_text)))
+                tokens_out = usage.get("completion_tokens", usage.get("output_tokens", CostTracker.estimate_tokens(response_text)))
+                turn_cost = CostTracker.compute_turn_cost(prov, tokens_in, tokens_out)
+                tc_cost += turn_cost.cost_usd
+
                 session.flags.extend(flags)
                 session.promises.extend(promises)
                 if handoff:
@@ -175,6 +188,9 @@ class EvalEngine:
             else:
                 verdict_matched = (actual_verdict in ("FAIL_FLAGGED", "ESCALATED") and handoff_matched)
 
+            if verdict_matched:
+                total_verdict_matches += 1
+
             avg_lat = sum(tc_latencies) / len(tc_latencies) if tc_latencies else 0.0
 
             metrics = EvalMetrics(
@@ -190,7 +206,8 @@ class EvalEngine:
                 provider_used=provider_used,
                 verdict_matched=verdict_matched,
                 handoff_matched=handoff_matched,
-                is_curveball_run=is_curveball_run
+                is_curveball_run=is_curveball_run,
+                cost_usd=round(tc_cost, 6)
             )
             results_per_case.append(metrics)
             try:
@@ -235,10 +252,13 @@ class EvalEngine:
                 "test_count": m["total"]
             }
 
+        overall_accuracy = total_verdict_matches / len(test_cases) if test_cases else 0.0
+
         return {
             "total_test_cases": len(test_cases),
             "is_curveball_run": is_curveball_run,
             "overall_accuracy": {
+                "accuracy": round(overall_accuracy, 4),
                 "precision": round(overall_prec, 4),
                 "recall": round(overall_rec, 4),
                 "f1_score": round(overall_f1, 4),
@@ -257,7 +277,7 @@ class EvalEngine:
             "cases": [r.to_dict() for r in results_per_case]
         }
 
-    def simulate_timeout_scenario(self, turn_text: str = "Hello, I need help with my bill.") -> Dict[str, Any]:
+    async def simulate_timeout_scenario(self, turn_text: str = "Hello, I need help with my bill.") -> Dict[str, Any]:
         """
         Live demo method: simulates Gemini + Groq timeouts, then verifies the fallback
         chain returns the canonical SAFE_RESPONSE_SENTINEL within 3 seconds.
@@ -284,7 +304,7 @@ class EvalEngine:
 
         chain = FallbackChain()
         t_start = time.time()
-        result, provider_used, latency_ms = chain.execute_scoring_chain(
+        result, provider_used, latency_ms = await chain.execute_scoring_chain(
             turn_text=turn_text,
             speaker="agent",
             conversation_history=[],
@@ -328,7 +348,7 @@ class EvalEngine:
             }
         }
 
-    def simulate_all_providers_dead(self) -> Dict[str, Any]:
+    async def simulate_all_providers_dead(self) -> Dict[str, Any]:
         """
         Extreme failure test: trips ALL 4 provider circuit breakers and verifies
         the pipeline returns SAFE_RESPONSE_SENTINEL instantly without raising.
@@ -346,11 +366,11 @@ class EvalEngine:
 
         chain = FallbackChain()
         t_start = time.time()
-        result, provider, latency_ms = chain.execute_scoring_chain(
-            turn_text="[SYSTEM] All providers dead test",
+        result, provider, latency_ms = await chain.execute_scoring_chain(
+            turn_text="I guarantee you will get 100% refund today.",
             speaker="agent",
             conversation_history=[],
-            turn_id="all_dead_test"
+            turn_id="all_dead_turn"
         )
         elapsed = time.time() - t_start
 

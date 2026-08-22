@@ -24,7 +24,7 @@ class GuardrailEngine:
         raw_key = f"{target_entity.upper().strip()}:{action.lower().strip()}:{deadline.upper().strip()}:{str(condition or '').lower().strip()}"
         return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:16]
 
-    def evaluate_turn(
+    async def evaluate_turn(
         self,
         call_session: CallSession,
         turn: Turn,
@@ -38,7 +38,7 @@ class GuardrailEngine:
         history_dicts = [t.to_dict() for t in recent_turns if t.turn_index < turn.turn_index]
         
         # Execute LLM Fallback Chain
-        analysis, provider_used, latency_ms = self.fallback_chain.execute_scoring_chain(
+        analysis, provider_used, latency_ms = await self.fallback_chain.execute_scoring_chain(
             turn_text=turn.text,
             speaker=turn.speaker,
             conversation_history=history_dicts,
