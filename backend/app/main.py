@@ -4,7 +4,7 @@ import json
 import time
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from .config import settings
+from .config import settings, PROJECT_ROOT
 from .database import init_db, DatabaseManager
 from .models import CallSession, OutageModeRequest, CallState
 from .validators import AudioValidator, ValidationError
@@ -277,7 +277,7 @@ FRONTEND_DIR = PROJECT_ROOT / "frontend" / "dist"
 if FRONTEND_DIR.exists():
     @app.get("/")
     async def serve_frontend_index():
-        return FileResponse(FRONTEND_DIR / "index.html")
+        return _FileResponse(FRONTEND_DIR / "index.html")
     
     app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
