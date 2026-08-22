@@ -50,7 +50,7 @@ Black Box features an ultra-futuristic **Neon Terminal** cyber-HUD designed with
 ```mermaid
 graph TD
     %% Frontend Group
-    subgraph Frontend [Stitch "Neon Terminal" Cyber-HUD]
+    subgraph Frontend [Stitch Neon Terminal Cyber-HUD]
         UI[Live SSE Stream UI]
         Telemetry[Turn-by-turn badges & Audio Shaders]
         Ledger[Promises Ledger & CSV Export]
