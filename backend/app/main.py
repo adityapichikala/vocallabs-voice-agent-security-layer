@@ -35,7 +35,9 @@ def _evict_oldest_replay_buffer():
 try:
     from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Query, Request
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.staticfiles import StaticFiles
     from fastapi.responses import JSONResponse, StreamingResponse
+    from fastapi.responses import FileResponse
 except ImportError as e:
     raise ImportError(
         f"FastAPI is required but not installed. Run: pip install fastapi python-multipart uvicorn. Error: {e}"
@@ -225,12 +227,30 @@ async def get_latest_evaluation():
     results = eval_engine.run_benchmark(is_curveball_run=False)
     return results
 
+@app.post("/api/eval/simulate-timeout")
+async def simulate_timeout(turn_text: str = Query("Hello, I need help with my bill.")):
+    """
+    Live demo endpoint: trips Gemini + Groq circuit breakers, runs the scoring chain,
+    and returns a structured proof that the 3-second timeout + safe sentinel path works.
+    Circuit breakers are automatically restored after the test.
+    """
+    return eval_engine.simulate_timeout_scenario(turn_text=turn_text)
+
+@app.post("/api/eval/all-providers-dead")
+async def all_providers_dead():
+    """
+    Extreme failure test: trips ALL providers, confirms pipeline returns
+    SAFE_RESPONSE_SENTINEL instantly without raising an exception.
+    """
+    return eval_engine.simulate_all_providers_dead()
+
 # ==============================================================================
 #  BRIDGE ROUTES — backward-compatible with the Next.js frontend
 #  These mirror the old root main.py API surface so page.tsx needs zero changes.
 # ==============================================================================
 
 from fastapi.responses import FileResponse as _FileResponse
+from fastapi.staticfiles import StaticFiles
 
 @app.get("/audio/{filename}")
 async def serve_audio(filename: str):
@@ -241,6 +261,24 @@ async def serve_audio(filename: str):
             return _FileResponse(candidate)
     raise HTTPException(status_code=404, detail=f"Audio file not found: {filename}")
 
+@app.get("/api/metrics")
+async def get_metrics():
+    """
+    Returns aggregate cost, token usage, and latency metrics.
+    """
+    from .cost_tracker import GlobalMetrics
+    return GlobalMetrics.get_summary()
+
+# Mount the static frontend.
+# Vite builds to frontend/dist
+FRONTEND_DIR = PROJECT_ROOT / "frontend" / "dist"
+
+if FRONTEND_DIR.exists():
+    @app.get("/")
+    async def serve_frontend_index():
+        return FileResponse(FRONTEND_DIR / "index.html")
+    
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 
 @app.get("/health")
 async def health_check():

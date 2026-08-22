@@ -10,7 +10,7 @@ from .validators import PipelineStateValidator, ValidationError
 from .database import DatabaseManager
 from .asr_pipeline import ASRPipeline
 from .guardrail_engine import GuardrailEngine
-from .cost_tracker import CostTracker, CallCostSummary
+from .cost_tracker import CostTracker, CallCostSummary, GlobalMetrics
 from .config import settings
 
 class PipelineManager:
@@ -136,6 +136,17 @@ class PipelineManager:
                     )
 
                     # Emit evaluation result
+                    cost_dict = turn_cost.to_dict()
+                    
+                    # Log to stdout for hackathon judges
+                    print(
+                        f"[COST] turn={turn.turn_index} provider={provider} "
+                        f"latency={lat_ms:.1f}ms "
+                        f"tokens_in={turn_cost.tokens_in} tokens_out={turn_cost.tokens_out} "
+                        f"cost=${cost_dict['cost_usd']:.6f} cumulative=${cost_summary.total_cost_usd:.6f}"
+                    )
+                    GlobalMetrics.record_turn(turn_cost, lat_ms)
+
                     yield make_event("turn_evaluated", {
                         "call_id": session.id,
                         "turn_index": turn.turn_index,
@@ -148,7 +159,7 @@ class PipelineManager:
                         "handoff_reason": handoff_reason,
                         "progress_pct": round(((idx + 1) / total_turns) * 100, 1),
                         # cost telemetry
-                        "cost_usd":   turn_cost.to_dict()["cost_usd"],
+                        "cost_usd":   cost_dict["cost_usd"],
                         "tokens_in":  turn_cost.tokens_in,
                         "tokens_out": turn_cost.tokens_out,
                     })
@@ -199,6 +210,13 @@ class PipelineManager:
                 handoff_reason=session.handoff_reason
             )
             session.state = CallState.COMPLETE.value
+
+            print(
+                f"[COST SUMMARY] call_id={session.id} total_turns={len(session.turns)} "
+                f"total_cost=${cost_summary.total_cost_usd:.6f} "
+                f"projected_daily_cost=${cost_summary.projected_daily_cost:.2f} (@ 60 calls/hr)"
+            )
+            GlobalMetrics.record_call(cost_summary)
 
             yield make_event("complete", {
                 "call_id": session.id,

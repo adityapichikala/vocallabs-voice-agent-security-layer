@@ -7,7 +7,7 @@ import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional, Tuple
 from .config import settings
-from .circuit_breaker import CircuitBreakerRegistry
+from .circuit_breaker import CircuitBreakerRegistry, SAFE_RESPONSE_SENTINEL
 from .validators import LLMOutputValidator, ValidationError
 from .knowledge_base import KnowledgeBaseRepository
 
@@ -191,11 +191,66 @@ Respond ONLY with a valid JSON object matching this schema:
         }
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
             result = json.loads(body)
             return result["response"]
+
+    def call_grok(self, prompt: str, timeout: float = 3.0) -> str:
+        """Tier 1A: xAI Grok — OpenAI-compatible chat endpoint."""
+        if not settings.grok_api_key:
+            raise ValueError("GROK_API_KEY is not configured.")
+        payload = {
+            "model": settings.grok_model,
+            "messages": [
+                {"role": "system", "content": "You are Black Box voice guardrail scorer. Output strict JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            settings.grok_endpoint,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.grok_api_key}",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+            result = json.loads(body)
+            return result["choices"][0]["message"]["content"]
+
+    def call_openrouter(self, prompt: str, timeout: float = 3.0) -> str:
+        """Tier 1B: OpenRouter — free Llama-3.3-70B-Instruct endpoint."""
+        if not settings.openrouter_api_key:
+            raise ValueError("OPENROUTER_API_KEY is not configured.")
+        payload = {
+            "model": settings.openrouter_model,
+            "messages": [
+                {"role": "system", "content": "You are Black Box voice guardrail scorer. Output strict JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            settings.openrouter_endpoint,
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "HTTP-Referer": "https://github.com/blackbox-voice-agents",
+                "X-Title": "Black Box Voice Agent Guardrail",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+            result = json.loads(body)
+            return result["choices"][0]["message"]["content"]
 
     def run_heuristic_scorer(self, turn_text: str, speaker: str, conversation_history: List[Dict[str, Any]], turn_id: str) -> Dict[str, Any]:
         """Offline deterministic heuristic engine for fact-checking, promise detection, and handoffs."""
@@ -532,12 +587,18 @@ Respond ONLY with a valid JSON object matching this schema:
         turn_id: str,
     ) -> Tuple[Dict[str, Any], str, float]:
         """
-        Executes multi-provider fallback with circuit breakers:
-        Tier 1: Gemini -> Tier 2: Groq -> Tier 3: Ollama -> Tier 4: Heuristic Scorer
+        Executes multi-provider fallback with circuit breakers.
 
-        Each LLM call is wrapped in a thread-based timeout guard so a hanging
-        urllib call cannot block the async event loop indefinitely.
+        Tier Order (fastest/primary → safest/cheapest):
+          1A: Grok (xAI)   — grok-beta — 3s timeout
+          1B: OpenRouter    — free Llama-3.3-70B — 3s timeout
+          2:  Gemini 1.5 Flash — 3s timeout
+          3:  Groq (backup) — 3s timeout
+          4:  Ollama (local) — 10s timeout
+          5:  Heuristic (deterministic, zero-latency)
+          6:  SAFE_RESPONSE_SENTINEL (hardcoded, never fails)
 
+        Each cloud LLM call is thread-guarded with _call_with_timeout().
         Returns: (validated_output, provider_used, latency_ms)
         """
         prompt = self.build_prompt(turn_text, speaker, conversation_history, turn_id)
@@ -546,13 +607,19 @@ Respond ONLY with a valid JSON object matching this schema:
         self.last_usage_metadata = None
 
         providers = [
-            ("gemini", self.call_gemini, settings.circuit_breakers["gemini"].timeout_seconds),
-            ("groq",   self.call_groq,   settings.circuit_breakers["groq"].timeout_seconds),
-            ("ollama", self.call_ollama,  settings.circuit_breakers["ollama"].timeout_seconds),
+            ("grok",       self.call_grok,       settings.circuit_breakers["grok"].timeout_seconds),
+            ("openrouter", self.call_openrouter,  settings.circuit_breakers["openrouter"].timeout_seconds),
+            ("gemini",     self.call_gemini,      settings.circuit_breakers["gemini"].timeout_seconds),
+            ("groq",       self.call_groq,        settings.circuit_breakers["groq"].timeout_seconds),
+            ("ollama",     self.call_ollama,      settings.circuit_breakers["ollama"].timeout_seconds),
         ]
 
         for prov_name, call_fn, timeout in providers:
             # Skip providers that are unconfigured or simulating an outage
+            if prov_name == "grok" and (not settings.grok_api_key or settings.simulate_grok_outage):
+                continue
+            if prov_name == "openrouter" and (not settings.openrouter_api_key or settings.simulate_openrouter_outage):
+                continue
             if prov_name == "gemini" and (not settings.gemini_api_key or settings.simulate_gemini_outage):
                 continue
             if prov_name == "groq" and (not settings.groq_api_key or settings.simulate_groq_outage):
@@ -570,13 +637,18 @@ Respond ONLY with a valid JSON object matching this schema:
 
             t_start = time.time()
             try:
-                # Thread-guarded call — prevents blocking urllib from hanging the loop
+                # Thread-guarded call — strict 3s wall-clock hard limit
                 raw_response = self._call_with_timeout(call_fn, timeout, prompt, timeout=timeout)
                 latency_ms = (time.time() - t_start) * 1000.0
                 validated = LLMOutputValidator.parse_and_validate(raw_response, turn_id)
                 cb.record_success(latency_ms)
                 self.last_response = raw_response
                 return validated, prov_name, latency_ms
+            except TimeoutError as te:
+                # Hard timeout: trip circuit to OPEN immediately
+                latency_ms = (time.time() - t_start) * 1000.0
+                cb.record_timeout(prov_name)
+                # Continue to next provider in chain
             except Exception as e:
                 latency_ms = (time.time() - t_start) * 1000.0
                 cb.record_failure(str(e))
@@ -594,33 +666,11 @@ Respond ONLY with a valid JSON object matching this schema:
             return heuristic_res, "heuristic", latency_ms
         except Exception as heuristic_err:
             # -----------------------------------------------------------------------
-            # ALL PROVIDERS DEAD — emit safe human-review sentinel response.
-            # This guarantees the pipeline always returns something actionable
-            # instead of raising an unhandled exception that drops the SSE stream.
+            # ALL PROVIDERS DEAD — return the canonical SAFE_RESPONSE_SENTINEL.
+            # This is a hardcoded, deterministic response that NEVER blocks.
+            # The pipeline is guaranteed to always return something actionable.
             # -----------------------------------------------------------------------
             latency_ms = (time.time() - t_start) * 1000.0
-            sentinel = {
-                "turn_id": turn_id,
-                "claims": [],
-                "flags": [{
-                    "type": "HUMAN_HANDOFF",
-                    "severity": "CRITICAL",
-                    "detail": f"All LLM providers failed including heuristic fallback. Error: {heuristic_err}",
-                    "kb_fact_id": None,
-                    "claimed_value": None,
-                    "actual_value": None,
-                }],
-                "promises": [],
-                "language_analysis": {
-                    "is_code_switched": False,
-                    "detected_languages": ["en"],
-                    "intent_preserved": False,
-                    "translation_notes": "Scoring failed — manual review required."
-                },
-                "confidence": 0.0,
-                "reasoning": "All scoring providers exhausted. Routing to human supervisor is mandatory.",
-                "handoff_recommended": True,
-                "handoff_reason": "Complete provider failure — safe sentinel path activated.",
-            }
+            sentinel = {**SAFE_RESPONSE_SENTINEL, "turn_id": turn_id}
             self.last_response = json.dumps(sentinel)
             return sentinel, "sentinel", latency_ms

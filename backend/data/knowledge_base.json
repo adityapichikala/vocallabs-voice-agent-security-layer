@@ -1,46 +1,96 @@
 {
-  "company": "FastNet Broadband",
-  "description": "Knowledge base for FastNet ISP — used by the AI voice agent to answer customer queries accurately.",
-  "rules": [
+  "version": "2.0",
+  "company_name": "FastNet Broadband",
+  "last_updated": "2026-08-22",
+  "description": "Official Knowledge Base for FastNet ISP AI Voice Agent Guardrail System (Black Box).",
+  "facts": [
     {
-      "rule_id": "R01",
-      "topic": "Refund Policy",
-      "rule": "Refunds are only applicable for service outages that exceed 24 continuous hours. No refund is issued for outages of 24 hours or less."
+      "id": "KB-REF-001",
+      "category": "BILLING_CREDIT",
+      "claim_title": "Refund Policy for Outages",
+      "official_statement": "Refunds are only applicable for service outages that exceed 24 continuous hours. No refund is issued for outages of 24 hours or less. Compensation is INR 100 per day after the 24-hour mark.",
+      "canonical_value": {"type": "duration", "value": 24, "unit": "hours minimum outage for refund eligibility"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": false, "max_waiver_value": 0, "escalation_required": true},
+      "effective_date": "2024-01-01",
+      "tags": ["refund", "outage", "compensation", "billing"]
     },
     {
-      "rule_id": "R02",
-      "topic": "Cancellation Fee",
-      "rule": "If a customer cancels their plan within the first 6 months of activation, a cancellation fee of ₹1500 is charged. No cancellation fee applies after 6 months."
+      "id": "KB-CNC-002",
+      "category": "CANCELLATION",
+      "claim_title": "Early Cancellation Fee",
+      "official_statement": "Cancellation within the first 6 months of activation incurs a cancellation fee of INR 1500. No cancellation fee applies after 6 months.",
+      "canonical_value": {"type": "price", "value": 1500, "unit": "INR early termination fee"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": false, "max_waiver_value": 200, "escalation_required": true},
+      "effective_date": "2024-01-01",
+      "tags": ["cancellation", "fee", "termination", "early", "penalty"]
     },
     {
-      "rule_id": "R03",
-      "topic": "Plan Speeds",
-      "rule": "FastNet offers two consumer plans: the Basic plan provides speeds of 50 Mbps, and the Pro plan provides speeds of 200 Mbps."
+      "id": "KB-PRC-003",
+      "category": "PRICING",
+      "claim_title": "Consumer Plan Speeds",
+      "official_statement": "FastNet offers two consumer plans: the Basic plan provides speeds of 50 Mbps, and the Pro plan provides speeds of 200 Mbps. No other consumer speed tiers exist.",
+      "canonical_value": {"type": "speed", "value": "50/200", "unit": "Mbps Basic/Pro"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": false, "max_waiver_value": 0, "escalation_required": false},
+      "effective_date": "2024-01-01",
+      "tags": ["speed", "plan", "mbps", "basic", "pro", "bandwidth"]
     },
     {
-      "rule_id": "R04",
-      "topic": "Callback Window",
-      "rule": "FastNet guarantees a customer callback within a 2-hour window from the time of the request. No specific time slot is guaranteed — only the 2-hour window."
+      "id": "KB-SLA-004",
+      "category": "SUPPORT_SLA",
+      "claim_title": "Callback Window",
+      "official_statement": "Callbacks have a 2-hour window from the time of the request. Agents must NOT promise a specific callback time such as 30 minutes or 5 PM. Only the 2-hour window commitment is authorized.",
+      "canonical_value": {"type": "duration", "value": 2, "unit": "hour callback window"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": true, "max_waiver_value": 0, "escalation_required": false},
+      "effective_date": "2024-01-01",
+      "tags": ["callback", "sla", "window", "response", "time"]
     },
     {
-      "rule_id": "R05",
-      "topic": "Installation Timeline",
-      "rule": "New broadband installations take between 3 to 5 business days from the date of order confirmation. Weekends and public holidays are excluded."
+      "id": "KB-SLA-005",
+      "category": "SUPPORT_SLA",
+      "claim_title": "Installation Timeframe",
+      "official_statement": "New installations take 3 to 5 business days from the date of order confirmation. Agents must not promise same-day or next-day installation.",
+      "canonical_value": {"type": "duration", "value": "3-5", "unit": "business days for installation"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": false, "max_waiver_value": 0, "escalation_required": true},
+      "effective_date": "2024-01-01",
+      "tags": ["installation", "setup", "days", "business days", "schedule"]
     },
     {
-      "rule_id": "R06",
-      "topic": "Loyalty Discount",
-      "rule": "A 10% loyalty discount is applied to the monthly bill only after a customer has maintained an active subscription for 12 continuous months. The discount does not apply before the 12-month mark."
+      "id": "KB-PRM-006",
+      "category": "PROMOTION",
+      "claim_title": "Loyalty Discount",
+      "official_statement": "A 10 percent loyalty discount is available only after 12 continuous months of active subscription. Agents cannot offer this discount before the 12-month mark.",
+      "canonical_value": {"type": "percentage", "value": 10, "unit": "percent discount after 12 months"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": false, "max_waiver_value": 0, "escalation_required": true},
+      "effective_date": "2024-01-01",
+      "tags": ["discount", "loyalty", "12 months", "promotion", "offer"]
     },
     {
-      "rule_id": "R07",
-      "topic": "Billing Cycle",
-      "rule": "FastNet bills on a monthly cycle. Auto-debit is processed on the 5th of every month from the customer's registered payment method."
+      "id": "KB-BIL-007",
+      "category": "BILLING_CREDIT",
+      "claim_title": "Billing Cycle and Auto-Debit Date",
+      "official_statement": "Billing cycle is monthly. Auto-debit occurs on the 5th of each month. Customers cannot change their billing date.",
+      "canonical_value": {"type": "date", "value": 5, "unit": "day of month for auto-debit"},
+      "acceptable_variance_pct": 0,
+      "allowed_agent_authority": {"can_authorize": false, "max_waiver_value": 0, "escalation_required": false},
+      "effective_date": "2024-01-01",
+      "tags": ["billing", "auto-debit", "monthly", "payment", "cycle", "5th"]
     },
     {
-      "rule_id": "R08",
-      "topic": "Outage Compensation",
-      "rule": "For service outages exceeding 24 continuous hours, FastNet provides compensation of ₹100 per day for each additional day of downtime beyond the initial 24-hour period."
+      "id": "KB-REF-008",
+      "category": "BILLING_CREDIT",
+      "claim_title": "Outage Compensation Rate",
+      "official_statement": "Outage compensation is INR 100 per day for each day beyond the initial 24-hour outage period. This is applied as a credit to the next bill, not a cash refund.",
+      "canonical_value": {"type": "price", "value": 100, "unit": "INR per day compensation after 24h outage"},
+      "acceptable_variance_pct": 5,
+      "allowed_agent_authority": {"can_authorize": true, "max_waiver_value": 500, "escalation_required": false},
+      "effective_date": "2024-01-01",
+      "tags": ["outage", "compensation", "refund", "credit", "100", "rupees"]
     }
   ]
 }
