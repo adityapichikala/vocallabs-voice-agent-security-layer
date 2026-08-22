@@ -4,6 +4,21 @@
 
 ---
 
+## 🏆 Hackathon Submission Details
+
+- **What I built and how it works:** Black Box is an enterprise-grade reliability and guardrail layer for AI voice agents. It wraps around any live voice stream, transcribing the audio, fact-checking assertions in real-time against a ground-truth Knowledge Base, tracking any commitments made to a secure ledger, and automatically triggering a human handoff if the agent hallucinates or goes rogue. It works using a resilient multi-tier LLM routing chain powered by a FastAPI backend and a Vite-built React UI.
+- **My contribution & team roles:** I built this entire project **solo** from scratch within the time limit. I handled the full-stack engineering, from the Python FastAPI backend and Docker containerization to the React "Neon Terminal" frontend and the autonomous circuit-breaker architecture.
+- **Key Features:** 
+  - Real-Time Fact Grounding & Telemetry HUD.
+  - Automated Promises Ledger with Semantic Deduplication.
+  - 4-Tier LLM Fallback Chain (OpenRouter/Grok → Gemini → Local Ollama → Offline Heuristics).
+  - 20-Case Automated CLI Evaluation Benchmark.
+- **Technical Decisions & Challenges:**
+  - **Decisions:** Chosen SQLite in WAL mode for high-concurrency promise state tracking. Used FastAPI for fast async I/O and SSE streaming. Built a custom CLI harness (`run_eval_cli.py`) to continuously benchmark the accuracy and cost of the pipeline.
+  - **Challenges:** Encountered thread exhaustion when using `threading.Thread` for LLM timeouts under heavy load, which I resolved by refactoring to `asyncio.wait_for`. Resolved false positives with code-mixed Hindi-English (Hinglish) by dynamically injecting intent-preservation context into the system prompts. Overcame deployment obstacles by debugging and resolving Vite/React build steps (ES modules and Tailwind plugins) inside the Docker build pipeline.
+
+---
+
 ## 1. The Problem & Solution
 
 Voice AI companies don't struggle to make agents talk — they struggle to **trust** agents in production. An agent can hallucinate a discount, misquote an early termination penalty, fail to recognize a Hindi-English code-switched escalation, or silently make a promise nobody tracks. 
